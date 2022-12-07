@@ -43,12 +43,15 @@ TRAIN:
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
+  visual_prompting:
+  deterministic: True
 Distributed:
-  dist_url: tcp://localhost:3681
+  dist_url: tcp://localhost:3684
   dist_backend: 'nccl'
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
+  ngpus_per_node: 3
 TEST:
   test_split: val-test
   test_lmdb: datasets/lmdb/refcocog_u/val.lmdb

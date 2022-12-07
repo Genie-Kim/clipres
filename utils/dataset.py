@@ -91,10 +91,132 @@ def loads_pyarrow(buf):
     """
     return pa.deserialize(buf)
 
+def object_crop(img, mask, context=0.0, square=False, image_size=224):
+    img_crop, bbox = crop_mask(img, mask, context=context, square=square)
+    img_crop = pad_to_square(img_crop, channel_dim=0)
+    img_crop = torch.nn.functional.interpolate(img_crop.unsqueeze(0), (image_size, image_size)).squeeze(0)
+    return img_crop
+
+def crop_mask(img, mask, context=0.0, square=False):
+    
+    assert img.shape[1:] == mask.shape
+    
+    bbox = [mask.max(0).values.argmax(), mask.size(0) - mask.max(0).values.flip(0).argmax()]
+    bbox += [mask.max(1).values.argmax(), mask.size(1) - mask.max(1).values.flip(0).argmax()]
+    bbox = [int(x) for x in bbox]
+    
+    width, height = (bbox[3] - bbox[2]), (bbox[1] - bbox[0])
+
+    # square mask
+    if square:
+        bbox[0] = int(max(0, bbox[0] - context * height))
+        bbox[1] = int(min(mask.size(0), bbox[1] + context * height))
+        bbox[2] = int(max(0, bbox[2] - context * width))
+        bbox[3] = int(min(mask.size(1), bbox[3] + context * width))
+
+        width, height = (bbox[3] - bbox[2]), (bbox[1] - bbox[0])
+        if height > width:
+            bbox[2] = int(max(0, (bbox[2] - 0.5*height)))
+            bbox[3] = bbox[2] + height
+        else:
+            bbox[0] = int(max(0, (bbox[0] - 0.5*width)))
+            bbox[1] = bbox[0] + width
+    else:
+        bbox[0] = int(max(0, bbox[0] - context * height))
+        bbox[1] = int(min(mask.size(0), bbox[1] + context * height))
+        bbox[2] = int(max(0, bbox[2] - context * width))
+        bbox[3] = int(min(mask.size(1), bbox[3] + context * width))
+
+    width, height = (bbox[3] - bbox[2]), (bbox[1] - bbox[0])
+    img_crop = img[:, bbox[2]: bbox[3], bbox[0]: bbox[1]]
+    return img_crop, bbox
+
+
+def pad_to_square(img, channel_dim=2, fill=0):
+    """
+
+
+    add padding such that a squared image is returned """
+    
+    from torchvision.transforms.functional import pad
+
+    if channel_dim == 2:
+        img = img.permute(2, 0, 1)
+    elif channel_dim == 0:
+        pass
+    else:
+        raise ValueError('invalid channel_dim')
+
+    h, w = img.shape[1:]
+    pady1 = pady2 = padx1 = padx2 = 0
+
+    if h > w:
+        padx1 = (h - w) // 2
+        padx2 = h - w - padx1
+    elif w > h:
+        pady1 = (w - h) // 2
+        pady2 = w - h - pady1
+
+    img_padded = pad(img, padding=(padx1, pady1, padx2, pady2), padding_mode='constant')
+
+    if channel_dim == 2:
+        img_padded = img_padded.permute(1, 2, 0)
+
+    return img_padded
+
+def visual_prompt_eng(image, mask,image_size, blur=0, grayscale=False, center_context=None, rect=False, rect_color=(1,0,0), rect_width=2, 
+                   brightness=1.0, bg_fac=1, colorize=False, outline=False):
+
+    rw = rect_width
+
+    # image : H,W,3 , RGB. [0,255]
+    image = image.astype(np.float32)/255.
+    img = image.cpu() if isinstance(image, torch.Tensor) else torch.from_numpy(image)
+    img = img.permute(2,0,1) # c,H,W float [0,1]
+    mask = mask.cpu() if isinstance(mask, torch.Tensor) else torch.from_numpy(mask) # H,W float {0,1}
+    
+    img *= brightness
+    img_bl = img
+    if blur > 0: # best 5
+        img_bl = torch.from_numpy(cv2.GaussianBlur(img.permute(1,2,0).numpy(), (15, 15), blur)).permute(2,0,1)
+    
+    if grayscale:
+        img_bl = img_bl[1][None]
+
+    #img_inp = img_ratio*img*mask + (1-img_ratio)*img_bl
+    # img_inp = img_ratio*img*mask + (1-img_ratio)*img_bl * (1-mask)
+    img_inp = img*mask + (bg_fac) * img_bl * (1-mask)
+    
+    if rect:
+        _, bbox = crop_mask(img, mask, context=0.1)
+        img_inp[:, bbox[2]: bbox[3], max(0, bbox[0]-rw):bbox[0]+rw] = torch.tensor(rect_color)[:,None,None]
+        img_inp[:, bbox[2]: bbox[3], max(0, bbox[1]-rw):bbox[1]+rw] = torch.tensor(rect_color)[:,None,None]
+        img_inp[:, max(0, bbox[2]-1): bbox[2]+rw, bbox[0]:bbox[1]] = torch.tensor(rect_color)[:,None,None]
+        img_inp[:, max(0, bbox[3]-1): bbox[3]+rw, bbox[0]:bbox[1]] = torch.tensor(rect_color)[:,None,None]
+
+    if center_context is not None:
+        # ex: center_context=0.5
+        img_inp = object_crop(img_inp, mask, context=center_context, image_size=image_size)
+
+    if colorize:
+        img_gray = cv2.cvtColor(img.permute(1,2,0).numpy(), cv2.COLOR_RGB2GRAY)
+        img_gray = torch.stack([torch.from_numpy(img_gray)]*3)
+        img_inp = torch.tensor([1,0.2,0.2])[:,None,None] * img_gray * mask + bg_fac * img_gray * (1-mask)
+
+    if outline:
+        cont = cv2.findContours(mask.byte().numpy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        outline_img = np.zeros(mask.shape, dtype=np.uint8)
+        cv2.drawContours(outline_img, cont[0], -1, thickness=5, color=(255, 255, 255))
+        outline_img = torch.stack([torch.from_numpy(outline_img)]*3).float() / 255.
+        img_inp = torch.tensor([1,0,0])[:,None,None] *  outline_img + img_inp * (1- outline_img)
+    
+    img_inp = (img_inp.permute(1,2,0).numpy()*255.).astype(np.uint8)
+    return img_inp
+
 
 class RefDataset(Dataset):
     def __init__(self, lmdb_dir, mask_dir, dataset, split, mode, input_size,
-                 word_length):
+                 word_length,visual_prompting=None):
         super(RefDataset, self).__init__()
         self.lmdb_dir = lmdb_dir
         self.mask_dir = mask_dir
@@ -109,6 +231,7 @@ class RefDataset(Dataset):
                                  0.27577711]).reshape(3, 1, 1)
         self.length = info[dataset][split]
         self.env = None
+        self.visual_prompting = visual_prompting
 
     def _init_db(self):
         self.env = lmdb.open(self.lmdb_dir,
@@ -164,7 +287,13 @@ class RefDataset(Dataset):
             # sentence -> vector
             sent = sents[idx]
             word_vec = tokenize(sent, self.word_length, True).squeeze(0)
-            img, mask = self.convert(img, mask)
+            if self.visual_prompting is not None:
+                vp_img = visual_prompt_eng(img,mask,self.input_size[0],**self.visual_prompting)
+                vp_img = self.convert(vp_img)[0]
+                img, mask = self.convert(img, mask)
+                img = torch.stack([img,vp_img])
+            else:
+                img, mask = self.convert(img, mask)
             return img, word_vec, mask
         elif self.mode == 'val':
             # sentence -> vector

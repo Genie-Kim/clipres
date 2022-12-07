@@ -5,8 +5,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-
-
 class Bottleneck(nn.Module):
     expansion = 4
 
@@ -56,7 +54,7 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
         return out
 
-
+# CRIS editted
 class AttentionPool2d(nn.Module):
     def __init__(self,
                  spacial_dim: int,
@@ -72,12 +70,12 @@ class AttentionPool2d(nn.Module):
         self.v_proj = nn.Linear(embed_dim, embed_dim)
         self.c_proj = nn.Linear(embed_dim, output_dim or embed_dim)
         self.num_heads = num_heads
-        # residual
+        # residual(CRIS editted)
         self.connect = nn.Sequential(
             nn.Conv2d(embed_dim, output_dim, 1, stride=1, bias=False),
             nn.BatchNorm2d(output_dim))
-
-    def resize_pos_embed(self, pos_embed, input_shpae):
+    # CRIS editted
+    def resize_pos_embed(self, pos_embed, input_shpae, output_cls=False):
         """Resize pos_embed weights.
         Resize pos_embed using bicubic interpolate method.
         Args:
@@ -104,44 +102,77 @@ class AttentionPool2d(nn.Module):
                                          mode='bicubic')
         cls_token_weight = cls_token_weight.unsqueeze(1)
         pos_embed_weight = torch.flatten(pos_embed_weight, 2).transpose(1, 2)
-        # pos_embed = torch.cat((cls_token_weight, pos_embed_weight), dim=1)
-        return pos_embed_weight.transpose(-2, -1)
+        
+        if output_cls:
+            pos_embed = torch.cat((cls_token_weight, pos_embed_weight), dim=1)
+            return pos_embed.transpose(-2, -1)
+        else: 
+            return pos_embed_weight.transpose(-2, -1)
 
-    def forward(self, x):
-        B, C, H, W = x.size()
-        res = self.connect(x)
-        x = x.reshape(B, C, -1)  # NC(HW)
-        # x = torch.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(1+HW)
-        pos_embed = self.positional_embedding.unsqueeze(0)
-        pos_embed = self.resize_pos_embed(pos_embed, (H, W))  # NC(HW)
-        x = x + pos_embed.to(x.dtype)  # NC(HW)
-        x = x.permute(2, 0, 1)  # (HW)NC
-        x, _ = F.multi_head_attention_forward(
-            query=x,
-            key=x,
-            value=x,
-            embed_dim_to_check=x.shape[-1],
-            num_heads=self.num_heads,
-            q_proj_weight=self.q_proj.weight,
-            k_proj_weight=self.k_proj.weight,
-            v_proj_weight=self.v_proj.weight,
-            in_proj_weight=None,
-            in_proj_bias=torch.cat(
-                [self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
-            bias_k=None,
-            bias_v=None,
-            add_zero_attn=False,
-            dropout_p=0,
-            out_proj_weight=self.c_proj.weight,
-            out_proj_bias=self.c_proj.bias,
-            use_separate_proj_weight=True,
-            training=self.training,
-            need_weights=False)
-        x = x.permute(1, 2, 0).reshape(B, -1, H, W)
-        x = x + res
-        x = F.relu(x, True)
-
-        return x
+    def forward(self, x, output_cls=False):
+        if output_cls:
+            B, C, H, W = x.size()
+            x = x.reshape(B, C, -1)  # NC(HW)
+            x = torch.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(1+HW)
+            pos_embed = self.positional_embedding.unsqueeze(0)
+            pos_embed = self.resize_pos_embed(pos_embed, (H, W),True)  # NC(HW+1)
+            x = x + pos_embed.to(x.dtype)  # NC(HW+1)
+            x = x.permute(2, 0, 1)  # (HW+1)NC
+            x, _ = F.multi_head_attention_forward(
+                query=x[:1], key=x, value=x,
+                embed_dim_to_check=x.shape[-1],
+                num_heads=self.num_heads,
+                q_proj_weight=self.q_proj.weight,
+                k_proj_weight=self.k_proj.weight,
+                v_proj_weight=self.v_proj.weight,
+                in_proj_weight=None,
+                in_proj_bias=torch.cat([self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
+                bias_k=None,
+                bias_v=None,
+                add_zero_attn=False,
+                dropout_p=0,
+                out_proj_weight=self.c_proj.weight,
+                out_proj_bias=self.c_proj.bias,
+                use_separate_proj_weight=True,
+                training=self.training,
+                need_weights=False
+            )
+            return x.squeeze(0)
+        else:
+            B, C, H, W = x.size()
+            res = self.connect(x)
+            x = x.reshape(B, C, -1)  # NC(HW)
+            # x = torch.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(1+HW)
+            pos_embed = self.positional_embedding.unsqueeze(0)
+            pos_embed = self.resize_pos_embed(pos_embed, (H, W))  # NC(HW)
+            x = x + pos_embed.to(x.dtype)  # NC(HW)
+            x = x.permute(2, 0, 1)  # (HW)NC
+            x, _ = F.multi_head_attention_forward(
+                query=x,
+                key=x,
+                value=x,
+                embed_dim_to_check=x.shape[-1],
+                num_heads=self.num_heads,
+                q_proj_weight=self.q_proj.weight,
+                k_proj_weight=self.k_proj.weight,
+                v_proj_weight=self.v_proj.weight,
+                in_proj_weight=None,
+                in_proj_bias=torch.cat(
+                    [self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
+                bias_k=None,
+                bias_v=None,
+                add_zero_attn=False,
+                dropout_p=0,
+                out_proj_weight=self.c_proj.weight,
+                out_proj_bias=self.c_proj.bias,
+                use_separate_proj_weight=True,
+                training=self.training,
+                need_weights=False)
+            # CRIS editted
+            x = x.permute(1, 2, 0).reshape(B, -1, H, W)
+            x = x + res
+            x = F.relu(x, True)
+            return x
 
 
 class ModifiedResNet(nn.Module):
@@ -204,7 +235,7 @@ class ModifiedResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, output_cls =False):
         def stem(x):
             for conv, bn in [(self.conv1, self.bn1), (self.conv2, self.bn2),
                              (self.conv3, self.bn3)]:
@@ -218,9 +249,12 @@ class ModifiedResNet(nn.Module):
         x2 = self.layer2(x)
         x3 = self.layer3(x2)
         x4 = self.layer4(x3)
-        x4 = self.attnpool(x4)
-
-        return (x2, x3, x4)
+        if output_cls:
+            cls = self.attnpool(x4,True)
+            return cls
+        else:
+            x4 = self.attnpool(x4)
+            return (x2, x3, x4)
 
 
 class LayerNorm(nn.LayerNorm):
@@ -450,8 +484,6 @@ class CLIP(nn.Module):
         # take features from the eot embedding (eot_token is the highest number in each sequence)
         state = x[torch.arange(x.shape[0]),
                   text.argmax(dim=-1)] @ self.text_projection
-        # x = x @ self.text_projection
-        # state = x[torch.arange(x.shape[0]), text.argmax(dim=-1)]
 
         return x, state
 

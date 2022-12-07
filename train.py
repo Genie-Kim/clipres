@@ -20,12 +20,13 @@ from loguru import logger
 from torch.optim.lr_scheduler import MultiStepLR
 
 import utils.config as config
-import wandb
 from utils.dataset import RefDataset
 from engine.engine import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger,
                         worker_init_fn)
+from tensorboardX import SummaryWriter
+import datetime as dt
 
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
@@ -54,16 +55,15 @@ def get_parser():
 def main():
     args = get_parser()
     args.manual_seed = init_random_seed(args.manual_seed)
-    set_random_seed(args.manual_seed, deterministic=False)
-
-    # args.ngpus_per_node = torch.cuda.device_count()
-    args.ngpus_per_node = 2
-    args.world_size = args.ngpus_per_node * args.world_size
+    set_random_seed(args.manual_seed, deterministic=args.deterministic)
+    args.datime = dt.datetime.now().strftime("%y%m%d_%H%M%S")
     args.world_size = args.ngpus_per_node * args.world_size
     mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args, ))
 
 
 def main_worker(gpu, args):
+    
+    args.exp_name = f"{args.datime}_{args.exp_name}"
     args.output_dir = os.path.join(args.output_folder, args.exp_name)
 
     # local rank & global rank
@@ -85,12 +85,7 @@ def main_worker(gpu, args):
 
     # wandb
     if args.rank == 0:
-        wandb.init(job_type="training",
-                   mode="online",
-                   config=args,
-                   project="CRIS",
-                   name=args.exp_name,
-                   tags=[args.dataset, args.clip_pretrain])
+        args.writer = SummaryWriter(args.output_dir)
     dist.barrier()
 
     # build model
@@ -122,14 +117,8 @@ def main_worker(gpu, args):
                             split=args.train_split,
                             mode='train',
                             input_size=args.input_size,
-                            word_length=args.word_len)
-    val_data = RefDataset(lmdb_dir=args.val_lmdb,
-                          mask_dir=args.mask_root,
-                          dataset=args.dataset,
-                          split=args.val_split,
-                          mode='val',
-                          input_size=args.input_size,
-                          word_length=args.word_len)
+                            word_length=args.word_len,
+                            visual_prompting = args.visual_prompting)
 
     # build dataloader
     init_fn = partial(worker_init_fn,
@@ -185,7 +174,7 @@ def main_worker(gpu, args):
             raise ValueError(
                 "=> resume failed! no checkpoint found at '{}'. Please check args.resume again!"
                 .format(args.resume))
-
+    torch.cuda.empty_cache()
     # start training
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -202,8 +191,10 @@ def main_worker(gpu, args):
         iou=0
         prec_dict=0
         for val_name, val_loader in val_loaders.items():
-            print(f"{val_name} Evaluation!!!")
+            if dist.get_rank() == 0:
+                print(f"{val_name} Evaluation!!!")
             if val_name=='val':
+                # for best iou calculation
                 iou, prec_dict = validate(val_name,val_loader, model, epoch_log, args)
             else:
                 _, _ = validate(val_name,val_loader, model, epoch_log, args)
@@ -232,7 +223,8 @@ def main_worker(gpu, args):
 
     time.sleep(2)
     if dist.get_rank() == 0:
-        wandb.finish()
+        # wandb.finish()
+        args.writer.close()
 
     logger.info("* Best IoU={} * ".format(best_IoU))
     total_time = time.time() - start_time

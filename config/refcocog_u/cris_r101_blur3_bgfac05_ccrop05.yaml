@@ -1,15 +1,15 @@
 DATA:
-  dataset: refcoco
-  train_lmdb: datasets/lmdb/refcoco/train.lmdb
+  dataset: refcocog_u
+  train_lmdb: datasets/lmdb/refcocog_u/train.lmdb
   train_split: train
-  val_lmdb: datasets/lmdb/refcoco/val.lmdb
-  val_split: ['val','testA','testB']
-  mask_root: datasets/masks/refcoco
+  val_lmdb: datasets/lmdb/refcocog_u/val.lmdb
+  val_split: ['val','test']
+  mask_root: datasets/masks/refcocog_u
 TRAIN:
   # Base Arch
   clip_pretrain: pretrain/RN101.pt
   input_size: 416
-  word_len: 17
+  word_len: 22
   word_dim: 512
   vis_dim: 512
   fpn_in: [512, 1024, 512]
@@ -37,16 +37,16 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_R101
-  output_folder: exp/refcoco
+  exp_name: CRIS_R101_blur3_bgfac05_ccrop05
+  output_folder: exp/refcocog_u
   save_freq: 1
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
-  visual_prompting:
+  visual_prompting: {"blur":3, "bg_fac":0.5, "center_context":0.5}
   deterministic: True
 Distributed:
-  dist_url: tcp://localhost:3681
+  dist_url: tcp://localhost:3686
   dist_backend: 'nccl'
   multiprocessing_distributed: True
   world_size: 1
@@ -54,7 +54,7 @@ Distributed:
   ngpus_per_node: 3
 TEST:
   test_split: val-test
-  test_lmdb: datasets/lmdb/refcoco/val.lmdb
+  test_lmdb: datasets/lmdb/refcocog_u/val.lmdb
   visualize: False
 DEBUG:
   debug: False

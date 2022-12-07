@@ -37,16 +37,17 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_R101
+  exp_name: CRIS_R101_blur3_bgfac05_ccrop05
   output_folder: exp/refcoco
   save_freq: 1
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
-  visual_prompting:
+  # visual_prompting: {'blur':3}
+  visual_prompting: {"blur":3, "bg_fac":0.5, "center_context":0.5}
   deterministic: True
 Distributed:
-  dist_url: tcp://localhost:3681
+  dist_url: tcp://localhost:3683
   dist_backend: 'nccl'
   multiprocessing_distributed: True
   world_size: 1

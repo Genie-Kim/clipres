@@ -36,7 +36,7 @@ def build_segmenter(args):
     for k, v in model.named_parameters():
         if k.startswith('backbone') and 'positional_embedding' not in k:
             backbone.append(v)
-        else:
+        elif v.requires_grad:
             head.append(v)
     logger.info('Backbone with decay={}, Head={}'.format(len(backbone), len(head)))
     param_list = [{

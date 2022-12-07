@@ -7,7 +7,6 @@ import torch
 import torch.cuda.amp as amp
 import torch.distributed as dist
 import torch.nn.functional as F
-import wandb
 from loguru import logger
 from utils.dataset import tokenize
 from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather,
@@ -37,16 +36,23 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
     for i, (image, text, target) in enumerate(train_loader):
         data_time.update(time.time() - end)
         # data
+        if args.visual_prompting is not None:
+            image = image.permute(1,0,2,3,4)
+            vp_img = image[1]
+            vp_img = vp_img.cuda(non_blocking=True)
+            image = image[0]
         image = image.cuda(non_blocking=True)
         text = text.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True).unsqueeze(1)
-
         # # multi-scale training
         # image = F.interpolate(image, size=(new_size, new_size), mode='bilinear')
 
         # forward
         with amp.autocast():
-            pred, target, loss = model(image, text, target)
+            if args.visual_prompting is not None:
+                pred, target, loss = model(image, text, target,vp_img)
+            else:
+                pred, target, loss = model(image, text, target)
 
         # backward
         optimizer.zero_grad()
@@ -75,16 +81,12 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
         if (i + 1) % args.print_freq == 0:
             progress.display(i + 1)
             if dist.get_rank() in [-1, 0]:
-                wandb.log(
-                    {
-                        "time/batch": batch_time.val,
-                        "time/data": data_time.val,
-                        "training/lr": lr.val,
-                        "training/loss": loss_meter.val,
-                        "training/iou": iou_meter.val,
-                        "training/prec@50": pr_meter.val,
-                    },
-                    step=epoch * len(train_loader) + (i + 1))
+                args.writer.add_scalar('time/batch',batch_time.val,epoch * len(train_loader) + (i + 1))
+                args.writer.add_scalar('time/data',data_time.val,epoch * len(train_loader) + (i + 1))
+                args.writer.add_scalar('training/lr',lr.val,epoch * len(train_loader) + (i + 1))
+                args.writer.add_scalar('training/loss',loss_meter.val,epoch * len(train_loader) + (i + 1))
+                args.writer.add_scalar('training/iou',iou_meter.val,epoch * len(train_loader) + (i + 1))
+                args.writer.add_scalar('training/prec@50',pr_meter.val,epoch * len(train_loader) + (i + 1))
         if args.debug:
             break
 
@@ -147,11 +149,7 @@ def validate(val_name, val_loader, model, epoch, args):
     logger.info(head + temp)
     
     if dist.get_rank() in [-1, 0]:
-        wandb.log(
-            {
-                f"{val_name}/iou": 100 * iou.item(),
-            },
-            step=epoch)
+        args.writer.add_scalar(f"{val_name}/iou",100 * iou.item(),epoch)
     
     return iou.item(), prec
 

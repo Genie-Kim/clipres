@@ -1,4 +1,3 @@
-wandb
 lmdb
 pyarrow
 regex
@@ -10,4 +9,5 @@ tqdm
 opencv-python
 gevent
 scikit-image
+tensorflow
 
