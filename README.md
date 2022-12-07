@@ -80,7 +80,7 @@ CUDA_VISIBLE_DEVICES=0 python -u test.py \
 This project is under the MIT license. See [LICENSE](LICENSE) for details.
 
 ## Citation
-If you find our work useful in your research, please consider citing:
+f you find our work useful in your research, please consider citing:
 ```
 @inproceedings{wang2021cris,
   title={CRIS: CLIP-Driven Referring Image Segmentation},
