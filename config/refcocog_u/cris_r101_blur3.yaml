@@ -37,7 +37,7 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_R101_blur3
+  exp_name: CRIS_R101_blur3_addnorm
   output_folder: exp/refcocog_u
   save_freq: 1
   weight:  # path to initial weight (default: none)
@@ -51,7 +51,7 @@ Distributed:
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
-  ngpus_per_node: 3
+  ngpus_per_node: 2
 TEST:
   test_split: val-test
   test_lmdb: datasets/lmdb/refcocog_u/val.lmdb
