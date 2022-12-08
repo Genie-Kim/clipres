@@ -39,7 +39,7 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_R101
+  exp_name: CRIS_R101_textfreeze
   output_folder: exp/refcocog_u
   save_freq: 1
   weight:  # path to initial weight (default: none)
