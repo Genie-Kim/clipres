@@ -15,7 +15,9 @@ TRAIN:
   fpn_in: [512, 1024, 512]
   fpn_out: [256, 512, 1024]
   sync_bn: True
+  textfreeze: True
   # Decoder
+  nodecoder: True # erase decoder.
   num_layers: 3
   num_head: 8
   dim_ffn: 2048
@@ -37,7 +39,7 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_R101_blur3_addnorm
+  exp_name: CRIS_R101_blur3
   output_folder: exp/refcocog_u
   save_freq: 1
   weight:  # path to initial weight (default: none)
@@ -51,7 +53,7 @@ Distributed:
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
-  ngpus_per_node: 2
+  gpuids: ['0','1','2']
 TEST:
   test_split: val-test
   test_lmdb: datasets/lmdb/refcocog_u/val.lmdb

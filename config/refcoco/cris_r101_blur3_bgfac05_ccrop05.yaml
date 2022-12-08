@@ -15,7 +15,9 @@ TRAIN:
   fpn_in: [512, 1024, 512]
   fpn_out: [256, 512, 1024]
   sync_bn: True
+  textfreeze: True
   # Decoder
+  nodecoder: True # erase decoder.
   num_layers: 3
   num_head: 8
   dim_ffn: 2048
@@ -52,7 +54,7 @@ Distributed:
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
-  ngpus_per_node: 3
+  gpuids: ['0','1','2']
 TEST:
   test_split: val-test
   test_lmdb: datasets/lmdb/refcoco/val.lmdb

@@ -15,7 +15,7 @@ TRAIN:
   fpn_in: [512, 1024, 512]
   fpn_out: [256, 512, 1024]
   sync_bn: True
-  textfreeze: False
+  textfreeze: True
   # Decoder
   nodecoder: True # erase decoder.
   num_layers: 3

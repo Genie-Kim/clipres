@@ -1,21 +1,21 @@
 DATA:
-  dataset: refcoco
-  train_lmdb: datasets/lmdb/refcoco/train.lmdb
+  dataset: refcocog_u
+  train_lmdb: datasets/lmdb/refcocog_u/train.lmdb
   train_split: train
-  val_lmdb: datasets/lmdb/refcoco/val.lmdb
-  val_split: ['val','testA','testB']
-  mask_root: datasets/masks/refcoco
+  val_lmdb: datasets/lmdb/refcocog_u/val.lmdb
+  val_split: ['val','test']
+  mask_root: datasets/masks/refcocog_u
 TRAIN:
   # Base Arch
   clip_pretrain: pretrain/RN101.pt
   input_size: 416
-  word_len: 17
+  word_len: 22
   word_dim: 512
   vis_dim: 512
   fpn_in: [512, 1024, 512]
   fpn_out: [256, 512, 1024]
   sync_bn: True
-  textfreeze: False
+  textfreeze: True
   # Decoder
   nodecoder: True # erase decoder.
   num_layers: 3
@@ -40,7 +40,7 @@ TRAIN:
   print_freq: 100
   # Resume & Save
   exp_name: CRIS_R101
-  output_folder: exp/refcoco
+  output_folder: exp/refcocog_u
   save_freq: 1
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
@@ -48,7 +48,7 @@ TRAIN:
   visual_prompting:
   deterministic: True
 Distributed:
-  dist_url: tcp://localhost:3681
+  dist_url: tcp://localhost:3684
   dist_backend: 'nccl'
   multiprocessing_distributed: True
   world_size: 1
@@ -56,7 +56,7 @@ Distributed:
   gpuids: ['0','1','2']
 TEST:
   test_split: val-test
-  test_lmdb: datasets/lmdb/refcoco/val.lmdb
+  test_lmdb: datasets/lmdb/refcocog_u/val.lmdb
   visualize: False
 DEBUG:
   debug: False
