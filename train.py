@@ -48,12 +48,18 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
+    cfg.cfgpath = args.config
     return cfg
 
 
 @logger.catch
 def main():
     args = get_parser()
+    if args.gpuids is not None:
+        os.environ['CUDA_VISIBLE_DEVICES']=','.join(args.gpuids)
+        args.ngpus_per_node = len(args.gpuids)
+    else:
+        args.ngpus_per_node = torch.cuda.device_count()
     args.manual_seed = init_random_seed(args.manual_seed)
     set_random_seed(args.manual_seed, deterministic=args.deterministic)
     args.datime = dt.datetime.now().strftime("%y%m%d_%H%M%S")
@@ -85,6 +91,7 @@ def main_worker(gpu, args):
 
     # wandb
     if args.rank == 0:
+        shutil.copy(args.cfgpath, os.path.join(args.output_dir,args.exp_name+'.yaml'))
         args.writer = SummaryWriter(args.output_dir)
     dist.barrier()
 

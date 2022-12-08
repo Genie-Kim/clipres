@@ -51,7 +51,7 @@ Distributed:
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
-  ngpus_per_node: 3
+  gpuids: "0,1,2"
 TEST:
   test_split: val-test
   test_lmdb: datasets/lmdb/refcocog_u/val.lmdb
