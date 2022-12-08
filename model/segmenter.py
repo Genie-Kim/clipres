@@ -58,7 +58,7 @@ class CRIS(nn.Module):
                 vis = self.backbone.encode_image(img)
                 with torch.no_grad():
                     vp_cls = self.clip_visenc(vp_img.type(self.clip_visenc.conv1.weight.dtype),output_cls=True) # b, 512
-
+                    vp_cls = vp_cls / vp_cls.norm(dim=-1, keepdim=True) * self.backbone.logit_scale # should wrap no grad
                 # b, 512, 26, 26 (C4)
                 fq = self.neck(vis, vp_cls)
                 b, c, h, w = fq.size()
@@ -80,8 +80,9 @@ class CRIS(nn.Module):
                 # word: b, length, 1024
                 # state: b, 1024
                 vis = self.backbone.encode_image(img)
-                word, state = self.backbone.encode_text(word)
-
+                _, state = self.backbone.encode_text(word)
+                state = state / state.norm(dim=-1, keepdim=True) * self.backbone.logit_scale
+                
                 # b, 512, 26, 26 (C4)
                 fq = self.neck(vis, state)
                 b, c, h, w = fq.size()
@@ -89,15 +90,7 @@ class CRIS(nn.Module):
                 # b, 1, 104, 104
                 pred = self.proj(fq, state)
 
-                if self.training:
-                    # resize mask
-                    if pred.shape[-2:] != mask.shape[-2:]:
-                        mask = F.interpolate(mask, pred.shape[-2:],
-                                            mode='nearest').detach()
-                    loss = F.binary_cross_entropy_with_logits(pred, mask)
-                    return pred.detach(), mask, loss
-                else:
-                    return pred.detach()
+                return pred.detach()
 
         else:
             # padding mask used in decoder
