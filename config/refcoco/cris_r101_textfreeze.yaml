@@ -39,13 +39,14 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_R101
+  exp_name: CRIS_R101_textfreeze
   output_folder: exp/refcoco
   save_freq: 1
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
   visual_prompting:
+  vispt_perturb:
   deterministic: True
 Distributed:
   dist_url: tcp://localhost:3681

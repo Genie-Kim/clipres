@@ -15,7 +15,7 @@ TRAIN:
   fpn_in: [512, 1024, 512]
   fpn_out: [256, 512, 1024]
   sync_bn: True
-  textfreeze: False
+  textfreeze: True
   # Decoder
   nodecoder: True # erase decoder.
   num_layers: 3
@@ -39,22 +39,23 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_R101
+  exp_name: CRIS_R101_blur3_perturbVG
   output_folder: exp/refcoco
   save_freq: 1
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
-  visual_prompting:
-  vispt_perturb:
+  visual_prompting: {'blur':3}
+  # visual_prompting: {"blur":3, "bg_fac":0.5, "center_context":0.5}
+  vispt_perturb: vanilla_gaussian
   deterministic: True
 Distributed:
-  dist_url: tcp://localhost:3681
+  dist_url: tcp://localhost:3682
   dist_backend: 'nccl'
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
-  gpuids: ['0','1','2']
+  gpuids: ['0','1']
 TEST:
   test_split: val-test
   test_lmdb: datasets/lmdb/refcoco/val.lmdb
