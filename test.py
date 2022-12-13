@@ -34,13 +34,14 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
+    cfg.output_folder = os.path.split(args.config)[0]
+    cfg.output_dir = os.path.split(args.config)[0]
     return cfg
 
 
 @logger.catch
 def main():
     args = get_parser()
-    args.output_dir = os.path.join(args.output_folder, args.exp_name)
     if args.visualize:
         args.vis_dir = os.path.join(args.output_dir, "vis")
         os.makedirs(args.vis_dir, exist_ok=True)
@@ -71,7 +72,8 @@ def main():
     model = torch.nn.DataParallel(model).cuda()
     logger.info(model)
 
-    args.model_dir = os.path.join(args.output_dir, "best_model.pth")
+    args.model_dir = os.path.join(args.output_dir, "last_model.pth")
+    # args.model_dir = os.path.join(args.output_dir, "best_model.pth")
     if os.path.isfile(args.model_dir):
         logger.info("=> loading checkpoint '{}'".format(args.model_dir))
         checkpoint = torch.load(args.model_dir)

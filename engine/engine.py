@@ -159,6 +159,7 @@ def inference(test_loader, model, args):
     iou_list = []
     tbar = tqdm(test_loader, desc='Inference:', ncols=100)
     model.eval()
+    green = np.array([44,160,44],dtype=int)
     time.sleep(2)
     for img, param in tbar:
         # data
@@ -169,10 +170,19 @@ def inference(test_loader, model, args):
             seg_id = param['seg_id'][0].cpu().numpy()
             img_name = '{}-img.jpg'.format(seg_id)
             mask_name = '{}-mask.png'.format(seg_id)
+            merged_mask_name = '{}-mask_merged.png'.format(seg_id)
+            ori_img = param['ori_img'][0].cpu().numpy()
             cv2.imwrite(filename=os.path.join(args.vis_dir, img_name),
-                        img=param['ori_img'][0].cpu().numpy())
+                        img=ori_img)
             cv2.imwrite(filename=os.path.join(args.vis_dir, mask_name),
                         img=mask)
+                
+            merged_mask = np.zeros(ori_img.shape)
+            merged_mask[mask!=255] = ori_img[mask!=255]
+            merged_mask[mask==255] = ori_img[mask==255]*0.3+green*0.7
+            merged_mask = merged_mask.astype(np.uint8)
+            cv2.imwrite(filename=os.path.join(args.vis_dir, merged_mask_name),
+                        img=merged_mask)
         # multiple sentences
         for sent in param['sents']:
             mask = mask / 255.
@@ -206,6 +216,15 @@ def inference(test_loader, model, args):
                 pred_name = '{}-iou={:.2f}-{}.png'.format(seg_id, iou*100, sent)
                 cv2.imwrite(filename=os.path.join(args.vis_dir, pred_name),
                             img=pred)
+
+                merged_pred = np.zeros(ori_img.shape)
+                merged_pred[pred!=255] = ori_img[pred!=255]
+                merged_pred[pred==255] = ori_img[pred==255]*0.3+green*0.7
+                merged_pred = merged_pred.astype(np.uint8)
+                pred_name = '{}-iou={:.2f}-{}_merged.png'.format(seg_id, iou*100, sent)
+                cv2.imwrite(filename=os.path.join(args.vis_dir, pred_name),
+                            img=merged_pred)
+
     logger.info('=> Metric Calculation <=')
     iou_list = np.stack(iou_list)
     iou_list = torch.from_numpy(iou_list).to(img.device)
