@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from model.clip import build_model
 import copy
 from .layers import FPN, Projector, TransformerDecoder
+from .visual_prompt import NoiseMapper
 
 
 def freeze_all(model):
@@ -17,44 +18,6 @@ def freeze_all(model):
     except AttributeError:
         model.requires_grad = False
                 
-class NoiseMapper(nn.Module):
-    def __init__(self, inputdim=512):
-        super(NoiseMapper, self).__init__()
-        self.linear1 = torch.nn.Linear(inputdim, 1024)
-        self.linear2 = torch.nn.Linear(1024, 1024)
-        self.linear3 = torch.nn.Linear(1024, 1024)
-        self.linear4 = torch.nn.Linear(1024, inputdim)
-        self.linear5 = torch.nn.Linear(inputdim, 1024)
-        self.linear6 = torch.nn.Linear(1024, 1024)
-        self.linear7 = torch.nn.Linear(1024, 1024)
-        self.linear8 = torch.nn.Linear(1024, inputdim)
-
-    def forward(self, x):
-        mu = F.leaky_relu(self.linear1(x))
-        mu = F.leaky_relu(self.linear2(mu))
-        mu = F.leaky_relu(self.linear3(mu))
-        mu = self.linear4(mu)
-        std = F.leaky_relu(self.linear5(x))
-        std = F.leaky_relu(self.linear6(std))
-        std = F.leaky_relu(self.linear7(std))
-        std = self.linear8(std)
-        return mu + std.exp()*(torch.randn(mu.shape).to(x.device))
-    
-    def loss(self, real, fake, temp=0.1, lam=0.5):
-        sim = torch.cosine_similarity(real.unsqueeze(1), fake.unsqueeze(0), dim=-1)
-        if temp > 0.:
-            sim = torch.exp(sim/temp)
-            sim1 = torch.diagonal(F.softmax(sim, dim=1))*temp
-            sim2 = torch.diagonal(F.softmax(sim, dim=0))*temp
-            if 0.<lam < 1.:
-                return -(lam*torch.log(sim1) + (1.-lam)*torch.log(sim2))
-            elif lam == 0:
-                return -torch.log(sim2)
-            else:
-                return -torch.log(sim1)
-        else:
-            return -torch.diagonal(sim)
-
 class CRIS(nn.Module):
     def __init__(self, cfg):
         super().__init__()

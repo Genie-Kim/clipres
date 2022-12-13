@@ -46,6 +46,7 @@ TRAIN:
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
   visual_prompting: {"blur":3, "bg_fac":0.5, "center_context":0.5}
+  vispt_perturb:
   deterministic: True
 Distributed:
   dist_url: tcp://localhost:3686

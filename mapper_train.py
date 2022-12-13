@@ -18,7 +18,7 @@ from utils.dataset import RefDataset
 from utils.misc import setup_logger
 
 from tqdm import tqdm
-from model.segmenter import NoiseMapper
+from model.visual_prompt import NoiseMapper
 
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
