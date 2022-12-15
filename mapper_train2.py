@@ -50,7 +50,7 @@ def get_parser():
 def main():
     args = get_parser()
     # folder define
-    args.output_dir = os.path.join('exp/generator', args.exp_name)
+    args.output_dir = os.path.join('exp/generator2', args.exp_name)
     args.writer = SummaryWriter(args.output_dir)
     # logger
     setup_logger(args.output_dir,
@@ -97,7 +97,7 @@ def main():
                                  lr=args.base_lr,
                                  weight_decay=args.weight_decay)
     scheduler = MultiStepLR(optimizer,
-                            milestones=[15,30,40,45],
+                            milestones=[30,40,45],
                             gamma=args.lr_decay)
     scaler = amp.GradScaler()
    
@@ -126,8 +126,8 @@ def main():
                 _, state = model.backbone.encode_text(text)
                 state = state / state.norm(dim=-1, keepdim=True) * torch.sqrt(model.backbone.logit_scale)
             loss1 = pseudo_text_loss(state, vp_cls).mean()
-            # print(l1loss(generated_img,image))
-            loss = loss1
+            loss2 = l1loss(generated_img,image)*0.1
+            loss = loss1+loss2
 
             # backward
             optimizer.zero_grad()
@@ -135,14 +135,14 @@ def main():
             scaler.step(optimizer)
             scaler.update()
             
-            print(f"epoch:{epoch}, iteration:{i}/{datalength}, loss:{loss}, loss1: {loss1.mean()}")
+            print(f"epoch:{epoch}, iteration:{i}/{datalength}, loss:{loss}, loss1: {loss1.mean()}, loss2: {loss2}")
             args.writer.add_scalar('textloss',loss1,epoch * len(train_loader) + (i + 1))
-            # args.writer.add_scalar('L1loss',loss2,epoch * len(train_loader) + (i + 1))
+            args.writer.add_scalar('L1loss',loss2,epoch * len(train_loader) + (i + 1))
             # break
         
         # update lr
         scheduler.step(epoch)
-        if epoch%2==0:
+        if epoch%5==0:
             args.model_dir = os.path.join(args.output_dir, "visual_promptor.pth")
             # save model
             torch.save(visual_promptor.state_dict(),args.model_dir)

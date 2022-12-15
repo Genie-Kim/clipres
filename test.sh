@@ -1,0 +1,3 @@
+CUDA_VISIBLE_DEVICES=2 python test.py --config exp/refcoco/221213_094704_CRIS_R101_blur3_peturblearn/221213_094704_CRIS_R101_blur3_peturblearn.yaml
+CUDA_VISIBLE_DEVICES=2 python test.py --config exp/refcocog_u/221213_155706_CRIS_R101_blur3_perturblearn/221213_155706_CRIS_R101_blur3_perturblearn.yaml
+CUDA_VISIBLE_DEVICES=2 python test.py --config exp/refcocog_u/221213_052117_CRIS_R101_blur3_perturbVG/221213_052117_CRIS_R101_blur3_perturbVG.yaml

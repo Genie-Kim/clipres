@@ -3,6 +3,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def pseudo_text_loss(real, fake, temp=0.1, lam=0.5):
+    sim = torch.cosine_similarity(real.unsqueeze(1), fake.unsqueeze(0), dim=-1)
+    if temp > 0.:
+        sim = torch.exp(sim/temp)
+        sim1 = torch.diagonal(F.softmax(sim, dim=1))*temp
+        sim2 = torch.diagonal(F.softmax(sim, dim=0))*temp
+        if 0.<lam < 1.:
+            return -(lam*torch.log(sim1+1e-16) + (1.-lam)*torch.log(sim2+1e-16))
+        elif lam == 0:
+            return -torch.log(sim2+1e-20)
+        else:
+            return -torch.log(sim1+1e-20)
+    else:
+        return -torch.diagonal(sim)
 
 class NoiseMapper(nn.Module):
     def __init__(self, inputdim=512):
@@ -47,7 +61,7 @@ class ResnetGenerator(nn.Module):
     We adapt Torch code and idea from Justin Johnson's neural style transfer project(https://github.com/jcjohnson/fast-neural-style)
     """
 
-    def __init__(self, input_nc=4, output_nc=3, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=9, padding_type='reflect'):
+    def __init__(self, input_nc=4, output_nc=3, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, padding_type='reflect'):
         """Construct a Resnet-based generator
         Parameters:
             input_nc (int)      -- the number of channels in input images
@@ -129,9 +143,21 @@ class ResnetGenerator(nn.Module):
         print('initialize network with %s' % init_type)
         net.apply(init_func)  # apply the initialization function <init_func>
         
-    def forward(self, input):
+    def forward(self, image,target):
         """Standard forward"""
-        return self.model(input)
+        input = torch.cat((image,target),dim=1) # B 4 H W
+        output = self.model(input)+image
+        return output
+    
+    def to_img(self, img):
+
+        mean = torch.Tensor([0.485, 0.456, 0.406])
+        std = torch.Tensor([0.229, 0.224, 0.225])
+        img_denorm = (img*std[:,None,None]) + mean[:,None,None]
+        img_denorm = img_denorm*255
+        img_denorm = torch.clamp(img_denorm, 0, 255)
+
+        return img_denorm
 
 
 class ResnetBlock(nn.Module):
