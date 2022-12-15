@@ -10,7 +10,7 @@ def pseudo_text_loss(real, fake, temp=0.1, lam=0.5):
         sim1 = torch.diagonal(F.softmax(sim, dim=1))*temp
         sim2 = torch.diagonal(F.softmax(sim, dim=0))*temp
         if 0.<lam < 1.:
-            return -(lam*torch.log(sim1+1e-16) + (1.-lam)*torch.log(sim2+1e-16))
+            return -(lam*torch.log(sim1+1e-20) + (1.-lam)*torch.log(sim2+1e-20))
         elif lam == 0:
             return -torch.log(sim2+1e-20)
         else:
