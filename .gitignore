@@ -129,5 +129,6 @@ demo/maskclip_demo.ipynb
 exp/
 wandb/
 datasets/
-
+analysis/
+datasets
 
