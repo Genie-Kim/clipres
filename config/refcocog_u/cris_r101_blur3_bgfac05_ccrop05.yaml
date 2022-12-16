@@ -47,6 +47,7 @@ TRAIN:
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
   visual_prompting: {"blur":3, "bg_fac":0.5, "center_context":0.5}
   vispt_perturb:
+  vispt_inval: False
   deterministic: True
 Distributed:
   dist_url: tcp://localhost:3686

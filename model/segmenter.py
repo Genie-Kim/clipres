@@ -60,6 +60,7 @@ class CRIS(nn.Module):
                 self.mapper = NoiseMapper(512)
                 self.mapper.load_state_dict(torch.load('exp/mapper/CRIS_R101_blur3_addnorm/noise_mapper.pth', map_location='cpu')) # path to the noise mapping network
                 freeze_all(self.mapper)
+        self.vispt_inval  = cfg.vispt_inval
     
     def forward(self, img, word, mask=None, vp_img = None):
         '''
@@ -70,7 +71,7 @@ class CRIS(nn.Module):
             vp_img: b, 3, h, w
         '''
         if self.nodecoder:
-            if self.training and self.vispt:
+            if (self.training and self.vispt) or self.vispt_inval:
                 assert vp_img is not None
                 # padding mask used in decoder
                 pad_mask = torch.zeros_like(word).masked_fill_(word == 0, 1).bool()
@@ -82,7 +83,7 @@ class CRIS(nn.Module):
                     vp_cls = self.clip_visenc(vp_img.type(self.clip_visenc.conv1.weight.dtype),output_cls=True) # b, 512
                     vp_cls = vp_cls / vp_cls.norm(dim=-1, keepdim=True) * torch.sqrt(self.backbone.logit_scale) # should wrap no grad
                     if self.vispt_perturb is not None:
-                        if self.vispt_perturb =='vanilla_gaussian':
+                        if self.vispt_perturb =='vanilla_gaussian' and self.training:
                             random_noise = torch.randn(vp_cls.shape).to(img.device)
                             random_noise = random_noise/random_noise.norm(dim=-1, keepdim=True)
                             vp_cls = vp_cls*(1-self.aug_level) + random_noise*self.aug_level
@@ -99,12 +100,15 @@ class CRIS(nn.Module):
                 # fq = fq.reshape(b, c, h, w)
                 # b, 1, 104, 104
                 pred = self.proj(fq, vp_cls)
-                # resize mask
-                if pred.shape[-2:] != mask.shape[-2:]:
-                    mask = F.interpolate(mask, pred.shape[-2:],
-                                        mode='nearest').detach()
-                loss = F.binary_cross_entropy_with_logits(pred, mask)
-                return pred.detach(), mask, loss
+                if self.training:
+                    # resize mask
+                    if pred.shape[-2:] != mask.shape[-2:]:
+                        mask = F.interpolate(mask, pred.shape[-2:],
+                                            mode='nearest').detach()
+                    loss = F.binary_cross_entropy_with_logits(pred, mask)
+                    return pred.detach(), mask, loss
+                else:
+                    return pred.detach()
             else:
                 # padding mask used in decoder
                 pad_mask = torch.zeros_like(word).masked_fill_(word == 0, 1).bool()

@@ -216,7 +216,7 @@ def visual_prompt_eng(image, mask,image_size, blur=0, grayscale=False, center_co
 
 class RefDataset(Dataset):
     def __init__(self, lmdb_dir, mask_dir, dataset, split, mode, input_size,
-                 word_length,visual_prompting=None):
+                 word_length,visual_prompting=None,vispt_inval=False):
         super(RefDataset, self).__init__()
         self.lmdb_dir = lmdb_dir
         self.mask_dir = mask_dir
@@ -232,6 +232,7 @@ class RefDataset(Dataset):
         self.length = info[dataset][split]
         self.env = None
         self.visual_prompting = visual_prompting
+        self.vispt_inval = vispt_inval
 
     def _init_db(self):
         self.env = lmdb.open(self.lmdb_dir,
@@ -295,11 +296,29 @@ class RefDataset(Dataset):
             else:
                 img, mask = self.convert(img, mask)
             return img, word_vec, mask
+
         elif self.mode == 'val':
             # sentence -> vector
             sent = sents[0]
             word_vec = tokenize(sent, self.word_length, True).squeeze(0)
-            img = self.convert(img)[0]
+            if self.visual_prompting is not None and self.vispt_inval:
+                # mask transform
+                mask = cv2.imdecode(np.frombuffer(ref['mask'], np.uint8),
+                                    cv2.IMREAD_GRAYSCALE)
+                mask = cv2.warpAffine(mask,
+                                    mat,
+                                    self.input_size,
+                                    flags=cv2.INTER_LINEAR,
+                                    borderValue=0.)
+                mask = mask / 255.
+                
+                vp_img = visual_prompt_eng(img,mask,self.input_size[0],**self.visual_prompting)
+                vp_img = self.convert(vp_img)[0]
+                img = self.convert(img)[0]
+                img = torch.stack([img,vp_img])
+            else:
+                img = self.convert(img)[0]
+                
             params = {
                 'mask_dir': mask_dir,
                 'inverse': mat_inv,
@@ -308,7 +327,23 @@ class RefDataset(Dataset):
             return img, word_vec, params
         else:
             # sentence -> vector
-            img = self.convert(img)[0]
+            if self.visual_prompting is not None and self.vispt_inval:
+                # mask transform
+                mask = cv2.imdecode(np.frombuffer(ref['mask'], np.uint8),
+                                    cv2.IMREAD_GRAYSCALE)
+                mask = cv2.warpAffine(mask,
+                                    mat,
+                                    self.input_size,
+                                    flags=cv2.INTER_LINEAR,
+                                    borderValue=0.)
+                mask = mask / 255.
+                vp_img = visual_prompt_eng(img,mask,self.input_size[0],**self.visual_prompting)
+                vp_img = self.convert(vp_img)[0]
+                img = self.convert(img)[0]
+                img = torch.stack([img,vp_img])
+            else:
+                img = self.convert(img)[0]
+                
             params = {
                 'ori_img': ori_img,
                 'seg_id': seg_id,

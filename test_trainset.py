@@ -43,16 +43,17 @@ def get_parser():
 def main():
     args = get_parser()
     args.vispt_inval = True # ToDo : change by the purpose
+    args.visualize = False
     if args.vispt_inval:
         if args.visualize:
             args.vis_dir = os.path.join(args.output_dir, "vis_usingvispt")
             os.makedirs(args.vis_dir, exist_ok=True)
-        logname = "test_usingvispt.log"
+        logname = "test_trainset_usingvispt.log"
     else:
         if args.visualize:
             args.vis_dir = os.path.join(args.output_dir, "vis")
             os.makedirs(args.vis_dir, exist_ok=True)
-        logname = "test.log"
+        logname = "test_trainset.log"
 
     # logger
     setup_logger(args.output_dir,
@@ -62,10 +63,10 @@ def main():
     logger.info(args)
 
     # build dataset & dataloader
-    test_data = RefDataset(lmdb_dir=args.test_lmdb,
+    test_data = RefDataset(lmdb_dir=args.train_lmdb,
                            mask_dir=args.mask_root,
                            dataset=args.dataset,
-                           split=args.test_split,
+                           split=args.train_split,
                            mode='test',
                            input_size=args.input_size,
                            word_length=args.word_len,

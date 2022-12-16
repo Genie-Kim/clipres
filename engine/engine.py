@@ -13,7 +13,7 @@ from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather,
                         trainMetricGPU)
 
 
-def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
+def train(train_loader, model, optimizer, scheduler , scaler, epoch, args):
     batch_time = AverageMeter('Batch', ':2.2f')
     data_time = AverageMeter('Data', ':2.2f')
     lr = AverageMeter('Lr', ':1.6f')
@@ -163,6 +163,12 @@ def inference(test_loader, model, args):
     time.sleep(2)
     for img, param in tbar:
         # data
+        if args.visual_prompting is not None and args.vispt_inval:
+            img = img.permute(1,0,2,3,4)
+            vp_img = img[1]
+            vp_img = vp_img.cuda(non_blocking=True)
+            img = img[0]
+            
         img = img.cuda(non_blocking=True)
         mask = cv2.imread(param['mask_dir'][0], flags=cv2.IMREAD_GRAYSCALE)
         # dump image & mask
@@ -189,7 +195,11 @@ def inference(test_loader, model, args):
             text = tokenize(sent, args.word_len, True)
             text = text.cuda(non_blocking=True)
             # inference
-            pred = model(img, text)
+            if args.visual_prompting is not None and args.vispt_inval:
+                pred = model(img, text, vp_img=vp_img)
+            else:
+                pred = model(img, text)
+            
             pred = torch.sigmoid(pred)
             if pred.shape[-2:] != img.shape[-2:]:
                 pred = F.interpolate(pred,

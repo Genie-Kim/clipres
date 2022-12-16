@@ -317,7 +317,6 @@ class REFER:
         # position_y = np.mean(np.where(m==1)[0]) # [0] means rows (matlab style)    -> y (c style)
         # # mass position (if there were multiple regions, we use the largest one.)
         # label_m = label(m, connectivity=m.ndim)
-        # regions = regionprops(label_m)
         # if len(regions) > 0:
         # 	largest_id = np.argmax(np.array([props.filled_area for props in regions]))
         # 	largest_props = regions[largest_id]
