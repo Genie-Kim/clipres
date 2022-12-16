@@ -8,7 +8,7 @@ CUDA_VISIBLE_DEVICES=0 python -u test_trainset.py --config exp/refcoco/221208_18
 
 
 
-# # dump scripts
+# dump scripts
 # ff = json.load(open('val.json', 'r'))
 
 # def find_segids(segid,ff):
@@ -19,4 +19,4 @@ CUDA_VISIBLE_DEVICES=0 python -u test_trainset.py --config exp/refcoco/221208_18
 #                 break
 #     for item in ff:
 #         if item['img_name']==imgname:
-#                 print(item['segment_id'])
+#                 print([f"{item['segment_id']}-iou=*-{x['sent'].replace(' ','_')}_merged.png" for x in item['sentences']])
